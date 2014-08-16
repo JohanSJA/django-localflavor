@@ -8,13 +8,16 @@ import re
 
 from django.core.validators import EMPTY_VALUES
 from django.forms import ValidationError
-from django.forms.fields import Field, RegexField, Select
-from django.utils.translation import ugettext_lazy as _
+from django.forms.fields import Field, RegexField, Select, CharField
 from django.utils.encoding import smart_text
+from django.utils.translation import ugettext_lazy as _
 
 from .it_province import PROVINCE_CHOICES
-from .it_region import REGION_CHOICES
-from .util import ssn_check_digit, vat_number_check_digit
+from .it_region import REGION_CHOICES, REGION_PROVINCE_CHOICES
+from .util import vat_number_validation, ssn_validation
+
+
+phone_digits_re = re.compile(r'^(?:\+?39)?((0\d{1,3})(\d{4,8})|(3\d{2})(\d{6,8}))$')
 
 
 class ITZipCodeField(RegexField):
@@ -39,6 +42,14 @@ class ITRegionSelect(Select):
         super(ITRegionSelect, self).__init__(attrs, choices=REGION_CHOICES)
 
 
+class ITRegionProvinceSelect(Select):
+    """
+    A Select widget that uses a named group list of IT regions mapped to regions as its choices.
+    """
+    def __init__(self, attrs=None):
+        super(ITRegionProvinceSelect, self).__init__(attrs, choices=REGION_PROVINCE_CHOICES)
+
+
 class ITProvinceSelect(Select):
     """
     A Select widget that uses a list of IT provinces as its choices.
@@ -49,16 +60,25 @@ class ITProvinceSelect(Select):
 
 class ITSocialSecurityNumberField(RegexField):
     """
-    A form field that validates Italian Social Security numbers (codice fiscale).
-    For reference see http://www.agenziaentrate.it/ and search for
-    'Informazioni sulla codificazione delle persone fisiche'.
+    A form field that validates Italian Social Security numbers (codice fiscale) for
+    both persons and entities.
+
+    For reference see http://www.agenziaentrate.it/ and search for:
+
+    * 'Informazioni sulla codificazione delle persone fisiche' for persons' SSN
+    * 'Codice fiscale Modello AA5/6' for entities' SSN
+
+    .. versionchanged:: 1.1
+
+    The ``ITSocialSecurityNumberField`` now also accepts SSN values for
+    entities (numeric-only form).
     """
     default_error_messages = {
         'invalid': _('Enter a valid Social Security number.'),
     }
 
     def __init__(self, max_length=None, min_length=None, *args, **kwargs):
-        super(ITSocialSecurityNumberField, self).__init__(r'^\w{3}\s*\w{3}\s*\w{5}\s*\w{5}$',
+        super(ITSocialSecurityNumberField, self).__init__(r'^\w{3}\s*\w{3}\s*\w{5}\s*\w{5}$|\d{10}',
                                                           max_length, min_length,
                                                           *args, **kwargs)
 
@@ -67,13 +87,18 @@ class ITSocialSecurityNumberField(RegexField):
         if value in EMPTY_VALUES:
             return ''
         value = re.sub('\s', '', value).upper()
-        try:
-            check_digit = ssn_check_digit(value)
-        except ValueError:
-            raise ValidationError(self.error_messages['invalid'])
-        if not value[15] == check_digit:
-            raise ValidationError(self.error_messages['invalid'])
-        return value
+        # Entities SSN are numeric-only
+        if value.isdigit():
+            try:
+                return vat_number_validation(value)
+            except ValueError:
+                raise ValidationError(self.error_messages['invalid'])
+        # Person SSN
+        else:
+            try:
+                return ssn_validation(value)
+            except (ValueError, IndexError):
+                raise ValidationError(self.error_messages['invalid'])
 
 
 class ITVatNumberField(Field):
@@ -89,11 +114,28 @@ class ITVatNumberField(Field):
         if value in EMPTY_VALUES:
             return ''
         try:
-            vat_number = int(value)
+            return vat_number_validation(value)
         except ValueError:
             raise ValidationError(self.error_messages['invalid'])
-        vat_number = str(vat_number).zfill(11)
-        check_digit = vat_number_check_digit(vat_number[0:10])
-        if not vat_number[10] == check_digit:
-            raise ValidationError(self.error_messages['invalid'])
-        return smart_text(vat_number)
+
+
+class ITPhoneNumberField(CharField):
+    """
+    A form field that validates input as an Italian phone number. Will strip
+    any +39 country prefix from the number.
+
+    .. versionadded:: 1.1
+    """
+    default_error_messages = {
+        'invalid': _('Enter a valid Italian phone number.'),
+    }
+
+    def clean(self, value):
+        super(ITPhoneNumberField, self).clean(value)
+        if value in EMPTY_VALUES:
+            return ''
+        value = re.sub(r'[^\+\d]', '', smart_text(value))
+        m = phone_digits_re.match(value)
+        if m:
+            return '%s %s' % tuple(group for group in m.groups()[1:] if group)
+        raise ValidationError(self.error_messages['invalid'])

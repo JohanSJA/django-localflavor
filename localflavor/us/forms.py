@@ -21,6 +21,10 @@ class USZipCodeField(RegexField):
     """"
     A form field that validates input as a U.S. ZIP code. Valid formats are
     XXXXX or XXXXX-XXXX.
+
+    .. versionadded:: 1.1
+
+    Whitespace around the ZIP code is accepted and automatically trimmed.
     """
     default_error_messages = {
         'invalid': _('Enter a zip code in the format XXXXX or XXXXX-XXXX.'),
@@ -29,6 +33,10 @@ class USZipCodeField(RegexField):
     def __init__(self, max_length=None, min_length=None, *args, **kwargs):
         super(USZipCodeField, self).__init__(r'^\d{5}(?:-\d{4})?$',
                                              max_length, min_length, *args, **kwargs)
+
+    def to_python(self, value):
+        value = super(USZipCodeField, self).to_python(value)
+        return value.strip()
 
 
 class USPhoneNumberField(CharField):
@@ -50,7 +58,7 @@ class USPhoneNumberField(CharField):
         raise ValidationError(self.error_messages['invalid'])
 
 
-class USSocialSecurityNumberField(Field):
+class USSocialSecurityNumberField(CharField):
     """
     A United States Social Security number.
 
@@ -83,9 +91,8 @@ class USSocialSecurityNumberField(Field):
             raise ValidationError(self.error_messages['invalid'])
 
         # Second pass: promotional and otherwise permanently invalid numbers.
-        if (area == '666' or (area == '987' and
-                              group == '65' and
-                              4320 <= int(serial) <= 4329) or
+        if (area == '666' or
+                area.startswith('9') or
                 value == '078-05-1120' or
                 value == '219-09-9999'):
             raise ValidationError(self.error_messages['invalid'])

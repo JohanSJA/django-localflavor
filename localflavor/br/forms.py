@@ -38,8 +38,8 @@ class BRZipCodeField(RegexField):
 
 class BRPhoneNumberField(Field):
     """
-    A form field that validates input as a Brazilian phone number, with the format
-    XX-XXXX-XXXX.
+    A form field that validates input as a Brazilian phone number, that must
+    be in either of the following formats: XX-XXXX-XXXX or XX-XXXXX-XXXX.
     """
     default_error_messages = {
         'invalid': _(('Phone numbers must be in either of the following '
@@ -128,7 +128,7 @@ class BRCPFField(CharField):
             return ''
         orig_value = value[:]
         if not value.isdigit():
-            value = re.sub("[-\.]", "", value)
+            value = re.sub("[-\. ]", "", value)
         try:
             int(value)
         except ValueError:
@@ -147,7 +147,8 @@ class BRCPFField(CharField):
         value = value[:-1] + str(new_2dv)
         if value[-2:] != orig_dv:
             raise ValidationError(self.error_messages['invalid'])
-
+        if value.count(value[0]) == 11:
+            raise ValidationError(self.error_messages['invalid'])
         return orig_value
 
 

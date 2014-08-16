@@ -5,6 +5,7 @@ Authors
 * Adrian Holovaty
 * Alex Gaynor
 * Alex Hill
+* Alex Zhang
 * Alonisser
 * Andreas Pelme
 * Andres Torres Marroquin
@@ -15,14 +16,17 @@ Authors
 * Claude Paroz
 * Douglas Miranda
 * Erik Romijn
-* Ferry Jérémie
+* Flavio Curella
+* Florian Apolloner
 * Gary Wilson Jr
 * Gerardo Orozco
+* Grzes Furga
 * Honza Král
 * Horst Gutmann
 * Jacob Kaplan-Moss
 * James Bennett
 * Jannis Leidel
+* Jérémie Ferry
 * Jonas Ghyllebert
 * Joseph Kocherhans
 * Julien Phalip

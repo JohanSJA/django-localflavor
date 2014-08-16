@@ -26,6 +26,21 @@ class USLocalFlavorTests(SimpleTestCase):
         self.assertFalse(form.is_valid())
         self.assertEqual(form.errors['state_req'], ['This field is required.'])
 
+    def test_errors(self):
+        form = USPlaceForm({
+            'state': 'invalid',
+            'state_req': 'invalid',
+            'postal_code': 'invalid',
+            'name': 'name',
+            'ssn': 'invalid'
+        })
+        self.assertFalse(form.is_valid())
+        choice_messages = ['Select a valid choice. invalid is not one of the available choices.']
+        self.assertEqual(form.errors['state'], choice_messages)
+        self.assertEqual(form.errors['state_req'], choice_messages)
+        self.assertEqual(form.errors['postal_code'], choice_messages)
+        self.assertEqual(form.errors['ssn'], ['Enter a valid U.S. Social Security number in XXX-XX-XXXX format.'])
+
     def test_field_blank_option(self):
         """Test that the empty option is there."""
         state_select_html = """\
@@ -234,6 +249,7 @@ class USLocalFlavorTests(SimpleTestCase):
             '60606': '60606',
             60606: '60606',
             '04000': '04000',
+            ' 04000 ': '04000',
             '60606-1234': '60606-1234',
         }
         invalid = {
@@ -278,10 +294,12 @@ class USLocalFlavorTests(SimpleTestCase):
         error_invalid = ['Enter a valid U.S. Social Security number in XXX-XX-XXXX format.']
 
         valid = {
-            '987-65-4330': '987-65-4330',
-            '987654330': '987-65-4330',
+            '123-45-6789': '123-45-6789',
+            '123456789': '123-45-6789',
         }
         invalid = {
             '078-05-1120': error_invalid,
+            '900-12-3456': error_invalid,
+            '999-98-7652': error_invalid,
         }
         self.assertFieldOutput(USSocialSecurityNumberField, valid, invalid)
